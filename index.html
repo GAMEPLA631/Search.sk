@@ -74,7 +74,7 @@
                 <input type="text" id="search" placeholder="Hľadať..." class="bg-transparent w-full outline-none text-lg">
                 
                 <div class="flex items-center gap-3 ml-auto text-gray-400">
-                    <span class="cursor-pointer hover:text-white">🎤</span>
+                    <span class="cursor-pointer hover:text-white" onclick="startVoiceSearch()" title="GAMEPLA631 Mikrofon">🎤</span>
                     <span class="cursor-pointer hover:text-white">📸</span>
                     <div class="bg-gray-800 text-xs px-3 py-1 rounded-full text-gray-300 font-medium ml-2 border border-gray-700">✨ AI Mode</div>
                 </div>
@@ -161,6 +161,35 @@
                 window.open(url, '_blank');
             }
         };
+
+        function startVoiceSearch() {
+            const searchInput = document.getElementById('search');
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            
+            recognition.lang = 'sk-SK';
+            recognition.start();
+            
+            searchInput.placeholder = "GAMEPLA631 Mikrofon - Počúvam...";
+            
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                searchInput.value = transcript;
+                searchInput.placeholder = "Hľadať...";
+                // Automatické vyhľadanie po rozpoznaní
+                if(transcript) performDirectSearch(transcript);
+            };
+
+            recognition.onerror = () => {
+                searchInput.placeholder = "Hľadať...";
+            };
+        }
+
+        function performDirectSearch(val) {
+            const url = currentEngine === 'google' 
+                ? 'https://www.google.com/search?q=' + encodeURIComponent(val)
+                : 'https://www.youtube.com/results?search_query=' + encodeURIComponent(val);
+            window.open(url, '_blank');
+        }
 
         document.addEventListener('DOMContentLoaded', () => updateUI(localStorage.getItem('logged_user')));
     </script>
