@@ -26,9 +26,23 @@
             updateUI(data.session ? data.session.user : null);
         }
 
-        async function loginWithGoogle() {
-            const { error } = await window.appState.supabase.auth.signInWithOAuth({ provider: 'google' });
-            if (error) alert("Chyba: " + error.message);
+        async function handleAuth(isRegistering) {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            let result;
+            if (isRegistering) {
+                result = await window.appState.supabase.auth.signUp({ email, password });
+            } else {
+                result = await window.appState.supabase.auth.signInWithPassword({ email, password });
+            }
+
+            if (result.error) {
+                alert("Chyba: " + result.error.message);
+            } else {
+                document.getElementById('login-modal').classList.add('hidden');
+                checkAuth();
+            }
         }
 
         async function logout() {
@@ -39,11 +53,11 @@
         function updateUI(user) {
             const btn = document.getElementById('login-btn');
             if (user) {
-                btn.innerText = `Odhlásiť (${user.user_metadata.full_name || 'Užívateľ'})`;
+                btn.innerText = `Odhlásiť (${user.email})`;
                 btn.onclick = logout;
             } else {
-                btn.innerText = "Prihlásiť sa cez Google";
-                btn.onclick = loginWithGoogle;
+                btn.innerText = "Prihlásiť sa / Registrovať";
+                btn.onclick = () => document.getElementById('login-modal').classList.remove('hidden');
             }
         }
 
@@ -66,14 +80,15 @@
         .search-container { width: 100%; max-width: 700px; padding: 2px; border-radius: 50px; background: linear-gradient(to right, #4285f4, #ea4335, #fbbc05, #34a853); }
         .search-bar { background: #000; border-radius: 48px; padding: 15px 25px; display: flex; align-items: center; gap: 15px; }
         input { background: transparent; border: none; outline: none; width: 100%; color: white; font-size: 1.1rem; }
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
         .config-panel { position: fixed; bottom: 20px; left: 20px; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; }
         .icon-btn { cursor: pointer; opacity: 0.7; transition: 0.2s; }
         .icon-btn:hover { opacity: 1; }
-        .ai-mode { border: 1px solid #444; padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; display: flex; align-items: center; gap: 5px; }
     </style>
 </head>
 <body>
 
+    <!-- Konfiguračný panel -->
     <div id="config-panel" class="config-panel hidden z-50">
         <h3 class="mb-2 text-sm">Supabase Konfigurácia</h3>
         <input id="sb_url_in" type="text" placeholder="Supabase URL" class="mb-2 w-full p-2 bg-black border border-gray-700 rounded">
@@ -81,8 +96,22 @@
         <button onclick="saveConfig()" class="w-full bg-blue-600 py-2 rounded">Uložiť a pripojiť</button>
     </div>
 
+    <!-- Prihlasovacie modálne okno -->
+    <div id="login-modal" class="modal hidden">
+        <div class="bg-gray-900 p-8 rounded-2xl border border-gray-700 w-full max-w-sm">
+            <h2 class="text-2xl mb-6 text-center">GAMEPLA631 Účet</h2>
+            <input id="auth-email" type="email" placeholder="Email" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-4">
+            <input id="auth-password" type="password" placeholder="Heslo" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-6">
+            <div class="flex gap-2">
+                <button onclick="handleAuth(false)" class="flex-1 bg-blue-600 py-2 rounded-lg">Prihlásiť</button>
+                <button onclick="handleAuth(true)" class="flex-1 bg-gray-700 py-2 rounded-lg">Registrovať</button>
+            </div>
+            <button onclick="document.getElementById('login-modal').classList.add('hidden')" class="w-full mt-4 text-gray-500 text-sm">Zrušiť</button>
+        </div>
+    </div>
+
     <div class="text-center w-full px-6">
-        <button id="login-btn" class="absolute top-5 right-5 px-4 py-2 bg-gray-800 rounded-full hover:bg-gray-700 transition">Pripájam...</button>
+        <button id="login-btn" class="absolute top-5 right-5 px-4 py-2 bg-gray-800 rounded-full hover:bg-gray-700 transition">Načítavam...</button>
         <h1 class="text-6xl font-medium mb-12 tracking-tight text-gray-200">GAMEPLA631</h1>
         
         <div class="search-container mx-auto">
@@ -94,7 +123,6 @@
                 <div class="flex items-center gap-4 ml-auto">
                     <span class="icon-btn">🎤</span>
                     <span class="icon-btn">📸</span>
-                    <div class="ai-mode">✨ AI Mode</div>
                 </div>
             </div>
         </div>
