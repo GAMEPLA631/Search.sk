@@ -6,8 +6,93 @@
     <title>GAMEPLA631 Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/idb@8/build/umd.js"></script>
+    <style>
+        body { background-color: #000; color: #e8eaed; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        
+        /* Gradient Border Search Bar (based on nmnasdns.webp) */
+        .search-wrapper {
+            position: relative;
+            padding: 2px;
+            background: linear-gradient(90deg, #4285f4, #ea4335, #fbbc05, #34a853);
+            border-radius: 9999px;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .search-input-box {
+            background: #000;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            padding: 12px 24px;
+            color: white;
+        }
+        
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .glass-panel { background: #1a1a1a; border: 1px solid #333; }
+        
+        .engine-btn {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .engine-btn.active {
+            border-color: #888;
+            background: #333;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal hidden">
+        <div class="glass-panel p-8 rounded-2xl shadow-2xl w-full max-w-sm">
+            <h2 class="text-xl mb-6 text-center font-semibold">GAMEPLA631 Prihlásenie</h2>
+            <input id="auth-email" type="email" placeholder="meno@gamepla631.sk" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-4 text-white">
+            <input id="auth-password" type="password" placeholder="Heslo" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-6 text-white">
+            <button onclick="handleAuth(false)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg mb-3 font-medium">Prihlásiť</button>
+            <button onclick="handleAuth(true)" class="w-full bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg font-medium">Registrovať</button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <div class="absolute top-5 right-5">
+        <button id="login-btn" class="text-sm px-4 py-2 hover:bg-gray-800 rounded-full transition">Pripájam...</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="text-center w-full px-6">
+        <h1 class="text-6xl font-medium mb-12 text-gray-100 tracking-tight">GAMEPLA631</h1>
+        
+        <!-- Search Bar -->
+        <div class="search-wrapper">
+            <div class="search-input-box">
+                <svg class="w-6 h-6 text-gray-500 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search" placeholder="Hľadať..." class="bg-transparent w-full outline-none text-lg">
+                
+                <div class="flex items-center gap-3 ml-auto text-gray-400">
+                    <span class="cursor-pointer hover:text-white">🎤</span>
+                    <span class="cursor-pointer hover:text-white">📸</span>
+                    <div class="bg-gray-800 text-xs px-3 py-1 rounded-full text-gray-300 font-medium ml-2 border border-gray-700">✨ AI Mode</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Engine Switcher -->
+        <div class="flex justify-center gap-4 mt-8">
+            <button id="btn-google" onclick="setEngine('google')" class="engine-btn active">Google</button>
+            <button id="btn-gpt-tube" onclick="setEngine('gpt-tube')" class="engine-btn">GPT-Tube</button>
+        </div>
+    </div>
+
     <script>
+        // Database & Logic
         const DB_NAME = 'GameplaDB';
+        let currentEngine = 'google';
+
         async function getDB() {
             return await idb.openDB(DB_NAME, 1, {
                 upgrade(db) { db.createObjectStore('users', { keyPath: 'email' }); }
@@ -41,6 +126,12 @@
             }
         }
 
+        function setEngine(engine) {
+            currentEngine = engine;
+            document.getElementById('btn-google').classList.toggle('active', engine === 'google');
+            document.getElementById('btn-gpt-tube').classList.toggle('active', engine === 'gpt-tube');
+        }
+
         function logout() {
             localStorage.removeItem('logged_user');
             updateUI(null);
@@ -58,71 +149,20 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => updateUI(localStorage.getItem('logged_user')));
-    </script>
-    <style>
-        body { background-color: #000; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-family: 'Segoe UI', Arial, sans-serif; }
-        
-        /* Gradient Border Container */
-        .search-border { 
-            background: linear-gradient(90deg, #4285f4, #ea4335, #fbbc05, #34a853);
-            border-radius: 9999px;
-            padding: 2px;
-            width: 100%;
-            max-width: 600px;
-        }
-        .search-inner { background: #000; border-radius: 9999px; display: flex; align-items: center; padding: 12px 20px; }
-        
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        .glass-panel { background: #1a1a1a; border: 1px solid #333; }
-    </style>
-</head>
-<body>
-
-    <!-- Login Modal -->
-    <div id="login-modal" class="modal hidden">
-        <div class="glass-panel p-8 rounded-2xl shadow-2xl w-full max-w-sm">
-            <h2 class="text-xl mb-6 text-center font-semibold">GAMEPLA631 Login</h2>
-            <input id="auth-email" type="email" placeholder="meno@gamepla631.sk" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-4 text-white">
-            <input id="auth-password" type="password" placeholder="Heslo" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-6 text-white">
-            <button onclick="handleAuth(false)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg mb-3 font-medium">Prihlásiť</button>
-            <button onclick="handleAuth(true)" class="w-full bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg font-medium">Registrovať</button>
-        </div>
-    </div>
-
-    <!-- Header -->
-    <div class="absolute top-5 right-5">
-        <button id="login-btn" class="text-sm px-4 py-2 hover:bg-gray-800 rounded-full transition">Načítavam...</button>
-    </div>
-
-    <!-- Hero -->
-    <div class="text-center w-full px-6">
-        <h1 class="text-6xl font-medium mb-12 text-gray-100 tracking-tight">GAMEPLA631</h1>
-        
-        <!-- Search Bar -->
-        <div class="search-border mx-auto">
-            <div class="search-inner">
-                <svg class="w-6 h-6 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="search" placeholder="Hľadať..." class="bg-transparent w-full outline-none text-lg">
-                
-                <div class="flex items-center gap-4 ml-auto">
-                    <button class="hover:bg-gray-800 p-2 rounded-full transition"><svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3s-3 1.34-3 3v6c0 1.66 1.34 3 3 3z"/></svg></button>
-                    <button class="hover:bg-gray-800 p-2 rounded-full transition"><svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg></button>
-                    <div class="bg-gray-800 text-xs px-3 py-1 rounded-full text-gray-300 flex items-center gap-1 font-medium">
-                        ✨ AI Mode
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
         document.getElementById('search').onkeypress = (e) => {
             if (e.key === 'Enter') {
                 const val = document.getElementById('search').value;
-                if(val) window.open('https://www.google.com/search?q=' + encodeURIComponent(val));
+                if(!val) return;
+                
+                const url = currentEngine === 'google' 
+                    ? 'https://www.google.com/search?q=' + encodeURIComponent(val)
+                    : 'https://www.youtube.com/results?search_query=' + encodeURIComponent(val);
+                
+                window.open(url, '_blank');
             }
         };
+
+        document.addEventListener('DOMContentLoaded', () => updateUI(localStorage.getItem('logged_user')));
     </script>
 </body>
 </html>
