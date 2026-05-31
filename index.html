@@ -5,150 +5,124 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GAMEPLA631 Search</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/idb@8/build/umd.js"></script>
     <script>
-        window.appState = { supabase: null };
-
-        function initSupabase() {
-            const url = localStorage.getItem('sb_url');
-            const key = localStorage.getItem('sb_key');
-            if (url && key) {
-                try {
-                    window.appState.supabase = supabase.createClient(url, key);
-                    document.getElementById('config-panel').classList.add('hidden');
-                    checkAuth();
-                } catch (e) { console.error("Chyba Supabase:", e); }
-            }
-        }
-
-        async function checkAuth() {
-            const { data } = await window.appState.supabase.auth.getSession();
-            updateUI(data.session ? data.session.user : null);
+        const DB_NAME = 'GameplaDB';
+        async function getDB() {
+            return await idb.openDB(DB_NAME, 1, {
+                upgrade(db) { db.createObjectStore('users', { keyPath: 'email' }); }
+            });
         }
 
         async function handleAuth(isRegistering) {
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             
-            let result;
+            if (!email.endsWith('@gamepla631.sk')) return alert("E-mail musí končiť na @gamepla631.sk");
+            
+            const db = await getDB();
             if (isRegistering) {
-                result = await window.appState.supabase.auth.signUp({ email, password });
+                await db.put('users', { email, password, createdAt: Date.now() });
+                alert("Účet vytvorený! Teraz sa musíš prihlásiť (po 1 hodine).");
             } else {
-                result = await window.appState.supabase.auth.signInWithPassword({ email, password });
-            }
-
-            if (result.error) {
-                alert("Chyba: " + result.error.message);
-            } else {
-                document.getElementById('login-modal').classList.add('hidden');
-                checkAuth();
+                const user = await db.get('users', email);
+                if (user && user.password === password) {
+                    const elapsed = Date.now() - user.createdAt;
+                    if (elapsed < 3600000) {
+                        alert("Musíš počkať 1 hodinu od registrácie.");
+                    } else {
+                        localStorage.setItem('logged_user', email);
+                        document.getElementById('login-modal').classList.add('hidden');
+                        updateUI(email);
+                    }
+                } else {
+                    alert("Chybné údaje!");
+                }
             }
         }
 
-        async function logout() {
-            await window.appState.supabase.auth.signOut();
+        function logout() {
+            localStorage.removeItem('logged_user');
             updateUI(null);
+            location.reload();
         }
 
-        function updateUI(user) {
+        function updateUI(email) {
             const btn = document.getElementById('login-btn');
-            if (user) {
-                btn.innerText = `Odhlásiť (${user.email})`;
+            if (email) {
+                btn.innerText = `Odhlásiť (${email})`;
                 btn.onclick = logout;
             } else {
-                btn.innerText = "Prihlásiť sa / Registrovať";
+                btn.innerText = "Prihlásiť sa";
                 btn.onclick = () => document.getElementById('login-modal').classList.remove('hidden');
             }
         }
 
-        function saveConfig() {
-            localStorage.setItem('sb_url', document.getElementById('sb_url_in').value);
-            localStorage.setItem('sb_key', document.getElementById('sb_key_in').value);
-            location.reload();
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (!localStorage.getItem('sb_url')) {
-                document.getElementById('config-panel').classList.remove('hidden');
-            } else {
-                initSupabase();
-            }
-        });
+        document.addEventListener('DOMContentLoaded', () => updateUI(localStorage.getItem('logged_user')));
     </script>
     <style>
-        body { background-color: #000; min-height: 100vh; display: flex; align-items: center; justify-content: center; color: white; font-family: 'Segoe UI', sans-serif; }
-        .search-container { width: 100%; max-width: 700px; padding: 2px; border-radius: 50px; background: linear-gradient(to right, #4285f4, #ea4335, #fbbc05, #34a853); }
-        .search-bar { background: #000; border-radius: 48px; padding: 15px 25px; display: flex; align-items: center; gap: 15px; }
-        input { background: transparent; border: none; outline: none; width: 100%; color: white; font-size: 1.1rem; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        .config-panel { position: fixed; bottom: 20px; left: 20px; background: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid #333; }
-        .icon-btn { cursor: pointer; opacity: 0.7; transition: 0.2s; }
-        .icon-btn:hover { opacity: 1; }
+        body { background-color: #000; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; font-family: 'Segoe UI', Arial, sans-serif; }
+        
+        /* Gradient Border Container */
+        .search-border { 
+            background: linear-gradient(90deg, #4285f4, #ea4335, #fbbc05, #34a853);
+            border-radius: 9999px;
+            padding: 2px;
+            width: 100%;
+            max-width: 600px;
+        }
+        .search-inner { background: #000; border-radius: 9999px; display: flex; align-items: center; padding: 12px 20px; }
+        
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .glass-panel { background: #1a1a1a; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
-    <!-- Konfiguračný panel -->
-    <div id="config-panel" class="config-panel hidden z-50">
-        <h3 class="mb-2 text-sm">Supabase Konfigurácia</h3>
-        <input id="sb_url_in" type="text" placeholder="Supabase URL" class="mb-2 w-full p-2 bg-black border border-gray-700 rounded">
-        <input id="sb_key_in" type="password" placeholder="Supabase API Key" class="mb-4 w-full p-2 bg-black border border-gray-700 rounded">
-        <button onclick="saveConfig()" class="w-full bg-blue-600 py-2 rounded">Uložiť a pripojiť</button>
-    </div>
-
-    <!-- Prihlasovacie modálne okno -->
+    <!-- Login Modal -->
     <div id="login-modal" class="modal hidden">
-        <div class="bg-gray-900 p-8 rounded-2xl border border-gray-700 w-full max-w-sm">
-            <h2 class="text-2xl mb-6 text-center">GAMEPLA631 Účet</h2>
-            <input id="auth-email" type="email" placeholder="Email" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-4">
-            <input id="auth-password" type="password" placeholder="Heslo" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-6">
-            <div class="flex gap-2">
-                <button onclick="handleAuth(false)" class="flex-1 bg-blue-600 py-2 rounded-lg">Prihlásiť</button>
-                <button onclick="handleAuth(true)" class="flex-1 bg-gray-700 py-2 rounded-lg">Registrovať</button>
-            </div>
-            <button onclick="document.getElementById('login-modal').classList.add('hidden')" class="w-full mt-4 text-gray-500 text-sm">Zrušiť</button>
+        <div class="glass-panel p-8 rounded-2xl shadow-2xl w-full max-w-sm">
+            <h2 class="text-xl mb-6 text-center font-semibold">GAMEPLA631 Login</h2>
+            <input id="auth-email" type="email" placeholder="meno@gamepla631.sk" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-4 text-white">
+            <input id="auth-password" type="password" placeholder="Heslo" class="w-full p-3 bg-black border border-gray-700 rounded-lg mb-6 text-white">
+            <button onclick="handleAuth(false)" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg mb-3 font-medium">Prihlásiť</button>
+            <button onclick="handleAuth(true)" class="w-full bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-lg font-medium">Registrovať</button>
         </div>
     </div>
 
+    <!-- Header -->
+    <div class="absolute top-5 right-5">
+        <button id="login-btn" class="text-sm px-4 py-2 hover:bg-gray-800 rounded-full transition">Načítavam...</button>
+    </div>
+
+    <!-- Hero -->
     <div class="text-center w-full px-6">
-        <button id="login-btn" class="absolute top-5 right-5 px-4 py-2 bg-gray-800 rounded-full hover:bg-gray-700 transition">Načítavam...</button>
-        <h1 class="text-6xl font-medium mb-12 tracking-tight text-gray-200">GAMEPLA631</h1>
+        <h1 class="text-6xl font-medium mb-12 text-gray-100 tracking-tight">GAMEPLA631</h1>
         
-        <div class="search-container mx-auto">
-            <div class="search-bar">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="opacity-50">
-                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-                <input type="text" id="search" placeholder="Hľadať..." onkeypress="handleEnter(event)">
+        <!-- Search Bar -->
+        <div class="search-border mx-auto">
+            <div class="search-inner">
+                <svg class="w-6 h-6 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="search" placeholder="Hľadať..." class="bg-transparent w-full outline-none text-lg">
+                
                 <div class="flex items-center gap-4 ml-auto">
-                    <span class="icon-btn">🎤</span>
-                    <span class="icon-btn">📸</span>
+                    <button class="hover:bg-gray-800 p-2 rounded-full transition"><svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3s-3 1.34-3 3v6c0 1.66 1.34 3 3 3z"/></svg></button>
+                    <button class="hover:bg-gray-800 p-2 rounded-full transition"><svg class="w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.2"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg></button>
+                    <div class="bg-gray-800 text-xs px-3 py-1 rounded-full text-gray-300 flex items-center gap-1 font-medium">
+                        ✨ AI Mode
+                    </div>
                 </div>
             </div>
-        </div>
-
-        <div class="flex justify-center gap-6 mt-10">
-            <button onclick="setEngine('google')" id="btn-google" class="px-6 py-2 rounded-full border border-gray-700 hover:border-gray-500 transition">Google</button>
-            <button onclick="setEngine('youtube')" id="btn-youtube" class="px-6 py-2 rounded-full border border-gray-700 hover:border-gray-500 transition">YouTube</button>
         </div>
     </div>
 
     <script>
-        let currentEngine = 'google';
-        function setEngine(engine) {
-            currentEngine = engine;
-            document.getElementById('btn-google').style.background = engine === 'google' ? '#333' : 'transparent';
-            document.getElementById('btn-youtube').style.background = engine === 'youtube' ? '#333' : 'transparent';
-        }
-        function handleEnter(e) { if (e.key === 'Enter') performSearch(); }
-        function performSearch() {
-            const query = document.getElementById('search').value;
-            if (!query) return;
-            const url = currentEngine === 'google' 
-                ? `https://www.google.com/search?q=${encodeURIComponent(query)}` 
-                : `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-            window.open(url, '_blank');
-        }
+        document.getElementById('search').onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                const val = document.getElementById('search').value;
+                if(val) window.open('https://www.google.com/search?q=' + encodeURIComponent(val));
+            }
+        };
     </script>
 </body>
 </html>
